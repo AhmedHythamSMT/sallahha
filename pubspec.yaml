@@ -1,0 +1,48 @@
+name: sallahha
+description: "Sallahha FieldOps (صلّحها) — Arabic-first offline-first field-service management for AC maintenance SMEs in Egypt."
+publish_to: 'none'
+version: 0.3.3+4
+
+environment:
+  sdk: ^3.13.2
+  flutter: '>=3.35.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  cupertino_icons: ^1.0.8
+
+  # State management + DI (single system — see docs/architecture/technology-decisions.md)
+  flutter_riverpod: ^2.6.1
+
+  # Declarative routing with role redirects
+  go_router: ^14.2.0
+
+  # Offline-first local database (SQL) — Phase 2 slice 2 wires DAOs; interface first
+  drift: ^2.24.0
+  sqlite3_flutter_libs: ^0.6.0+eol
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # Connectivity + storage
+  connectivity_plus: ^6.1.0
+  shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.2
+
+  # Proof photos (camera/gallery, downsized for low-end devices)
+  image_picker: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  drift_dev: ^2.24.0
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
+  generate: true
