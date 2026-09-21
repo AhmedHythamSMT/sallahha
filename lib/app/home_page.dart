@@ -61,6 +61,8 @@ class HomePage extends ConsumerWidget {
                     _NavCard(title: l.navReports, route: '/reports'),
                   ],
                   _NavCard(title: l.navProfile, route: '/profile'),
+                  if (kEnableDebugDbViewer)
+                    _NavCard(title: '🛠 Debug DB Viewer', route: '/debug/db'),
                 ],
               ],
             ),

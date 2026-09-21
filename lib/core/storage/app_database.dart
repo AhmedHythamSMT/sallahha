@@ -204,13 +204,18 @@ class SyncOperations extends Table {
   Set<Column> get primaryKey => {opId};
 }
 
+String? _databasePath;
+
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, 'sallahha.db'));
+    _databasePath = file.path;
     return NativeDatabase.createInBackground(file);
   });
 }
+
+String? get databasePath => _databasePath;
 
 @DriftDatabase(
   tables: [
@@ -244,4 +249,7 @@ class AppDatabase extends _$AppDatabase {
   /// Table inventory check that needs no I/O (runs on any host).
   List<String> get tableInventory =>
       allTables.map((t) => t.actualTableName).toList()..sort();
+
+  /// Returns the file path of the SQLite database (null for in-memory).
+  static String? get databasePath => _databasePath;
 }

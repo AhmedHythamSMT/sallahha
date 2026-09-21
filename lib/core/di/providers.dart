@@ -6,6 +6,7 @@ import 'package:sallahha/core/backend/mock_backend.dart';
 import 'package:sallahha/core/result/result.dart';
 import 'package:sallahha/core/storage/app_database.dart' as drift;
 import 'package:sallahha/core/storage/request_store.dart';
+import 'package:sallahha/core/storage/seed_data.dart';
 import 'package:sallahha/features/auth/data/mock_auth_repository.dart';
 import 'package:sallahha/features/auth/data/session_store.dart';
 import 'package:sallahha/features/auth/domain/auth_repository.dart';
@@ -15,6 +16,10 @@ import 'package:sallahha/features/requests/data/request_repository_impl.dart';
 import 'package:sallahha/features/requests/domain/ai_service.dart';
 import 'package:sallahha/features/requests/domain/entities.dart';
 import 'package:sallahha/features/requests/domain/request_repository.dart';
+
+/// Feature flags (debug only). Change to false for clean real-data runs.
+const bool kSeedDemoData = false ;
+const bool kEnableDebugDbViewer = true;
 
 /// Default locale is Arabic. Persisted across launches.
 final localeProvider = StateNotifierProvider<LocaleController, String>((ref) {
@@ -59,7 +64,9 @@ final sessionRoleProvider = Provider<String?>(
 );
 
 /// Connectivity stream → offline banner + sync trigger (Phase 4 consumes).
-final connectivityProvider = StreamProvider<List<ConnectivityResult>>((ref) {
+final connectivityProvider = StreamProvider<List<ConnectivityResult>>((
+  ref,
+) {
   return Connectivity().onConnectivityChanged;
 });
 
@@ -92,6 +99,10 @@ final backendProvider = Provider<MockBackend>((ref) => MockBackend());
 final databaseProvider = Provider<drift.AppDatabase>((ref) {
   final db = drift.AppDatabase();
   ref.onDispose(() => db.close());
+  if (kSeedDemoData) {
+    // Fire-and-forget: seeds only on first run (idempotent via unique constraints)
+    seedDemoData(db).catchError((_) {});
+  }
   return db;
 });
 
@@ -153,14 +164,14 @@ final requestDetailsProvider = FutureProvider.family<RequestDetails, String>((
 
 final dispatchQueueProvider =
     FutureProvider.family<List<ServiceRequest>, String>((ref, view) async {
-      final res = await ref
-          .watch(requestRepositoryProvider)
-          .dispatchQueue(view);
-      return switch (res) {
-        Ok(value: final v) => v,
-        Err(error: final e) => throw e,
-      };
-    });
+  final res = await ref
+      .watch(requestRepositoryProvider)
+      .dispatchQueue(view);
+  return switch (res) {
+    Ok(value: final v) => v,
+    Err(error: final e) => throw e,
+  };
+});
 
 final workloadProvider = FutureProvider<Map<String, int>>((ref) async {
   final res = await ref.watch(requestRepositoryProvider).technicianWorkload();
@@ -170,18 +181,9 @@ final workloadProvider = FutureProvider<Map<String, int>>((ref) async {
   };
 });
 
-/// Client-generated idempotency key per mutation (UUID-grade enough for MVP).
-int _opSeq = 0;
-String newOpKey(String userId) =>
-    '$userId-${DateTime.now().microsecondsSinceEpoch}-${_opSeq++}';
-
-// --- Sync UX (Phase 4) ---
-
 /// Per-entity badge state: synced | pending | failed.
-final syncStateProvider = FutureProvider.family<String, String>((
-  ref,
-  entityId,
-) async {
+final syncStateProvider =
+    FutureProvider.family<String, String>((ref, entityId) async {
   return ref.watch(requestRepositoryProvider).syncState(entityId);
 });
 
@@ -208,9 +210,11 @@ final aiServiceProvider = Provider<AIService>(
   (ref) => RuleBasedTriageService(),
 );
 
-final inboxProvider = FutureProvider.family<List<InboxItem>, String>((
-  ref,
-  userId,
-) async {
+final inboxProvider = FutureProvider.family<List<InboxItem>, String>((ref, userId) async {
   return ref.watch(notificationServiceProvider).inbox(userId);
 });
+
+/// Client-generated idempotency key per mutation (UUID-grade enough for MVP).
+int _opSeq = 0;
+String newOpKey(String userId) =>
+    '$userId-${DateTime.now().microsecondsSinceEpoch}-${_opSeq++}';
