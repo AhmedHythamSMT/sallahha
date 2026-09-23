@@ -107,10 +107,7 @@ class _SyncBadgeState extends ConsumerState<SyncBadge>
         break;
     }
 
-    return AnimatedSwitcher(
-      duration: AppAnimations.fast,
-      child: badge,
-    );
+    return AnimatedSwitcher(duration: AppAnimations.fast, child: badge);
   }
 }
 

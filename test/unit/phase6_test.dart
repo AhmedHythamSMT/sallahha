@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sallahha/core/backend/mock_backend.dart';
+import 'package:sallahha/core/backend/mock_remote_api.dart';
 import 'package:sallahha/core/storage/app_database.dart' hide ServiceRequest;
 import 'package:sallahha/core/storage/request_store.dart';
 import 'package:sallahha/core/sync/op_log.dart';
@@ -29,7 +29,7 @@ void main() {
 
   group('photo validation', () {
     RequestRepositoryImpl repo() => RequestRepositoryImpl(
-      remote: MockBackend(),
+      remote: MockRemoteApi(),
       local: LocalRequestStore(AppDatabase.memory()),
       oplog: MemoryOpLog(),
       isOnline: () async => true,

@@ -35,6 +35,23 @@ FakeRequestRepository _fake() => FakeRequestRepository(
   detailsMap: {'req-1': fakeDetails(fakeRequest())},
 );
 
+/// Fake repository that forwards notification mark-read to the injected
+/// service — mirroring the production repository-owns-service contract.
+class _InboxForwardingFake extends FakeRequestRepository {
+  final NotificationService inbox;
+  _InboxForwardingFake({required this.inbox, required FakeRequestRepository base})
+      : super(
+          serviceList: base.serviceList,
+          techList: base.techList,
+          requests: base.requests,
+          detailsMap: base.detailsMap,
+        );
+
+  @override
+  Future<void> markNotificationRead(String userId, int id) =>
+      inbox.markRead(id);
+}
+
 ProviderContainer _container(FakeRequestRepository fake, {AppUser? user}) {
   return ProviderContainer(
     overrides: [
@@ -49,8 +66,16 @@ ProviderContainer _container(FakeRequestRepository fake, {AppUser? user}) {
 
 void main() {
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
-    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({'onboarding_seen': true});
+    final view = TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .implicitView!;
+    view.physicalSize = const Size(1080, 2340);
+    view.devicePixelRatio = 3.0;
+    addTearDown(() {
+      view.resetPhysicalSize();
+      view.resetDevicePixelRatio();
+    });
   });
 
   testWidgets('login rejects bad credentials', (tester) async {
@@ -92,7 +117,14 @@ void main() {
     container.read(routerProvider).go('/login');
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('customer@demo.test'));
+    // Expand the secondary demo/interview panel, then pick an account.
+    final demoHeader = find.text('وضع العرض التجريبي (مقابلات)');
+    await tester.ensureVisible(demoHeader);
+    await tester.tap(demoHeader);
+    await tester.pumpAndSettle();
+    final account = find.text('customer@demo.test');
+    await tester.ensureVisible(account);
+    await tester.tap(account);
     await tester.pumpAndSettle();
     expect(find.text('Salma Ahmed'), findsOneWidget);
     expect(find.text('طلب صيانة جديد'), findsOneWidget);
@@ -188,12 +220,15 @@ void main() {
       email: 'tech@demo.test',
       role: 'technician',
     );
+    // The real repository owns the notification service; the fake must
+    // forward mark-read so the memory inbox converges like production.
+    final fake = _InboxForwardingFake(inbox: inbox, base: _fake());
     final container = ProviderContainer(
       overrides: [
         connectivityProvider.overrideWith(
           (ref) => Stream.value([ConnectivityResult.wifi]),
         ),
-        requestRepositoryProvider.overrideWith((ref) => _fake()),
+        requestRepositoryProvider.overrideWith((ref) => fake),
         sessionUserProvider.overrideWith((ref) => tech),
         notificationServiceProvider.overrideWith((ref) => inbox),
       ],

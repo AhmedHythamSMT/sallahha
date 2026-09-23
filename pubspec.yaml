@@ -35,6 +35,17 @@ dependencies:
   # Proof photos (camera/gallery, downsized for low-end devices)
   image_picker: ^1.0.8
 
+  # UI/UX Enhancements
+  flutter_animate: ^4.5.0
+  rive: ^0.13.0
+  lottie: ^3.1.0
+  skeletonizer: ^1.2.0
+  material_symbols_icons: ^4.2672.0
+  google_fonts: ^6.2.0
+  flutter_screenutil: ^5.9.0
+  supabase_flutter: ^2.17.2
+  flutter_dotenv: ^6.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -46,3 +57,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+  assets:
+    - .env

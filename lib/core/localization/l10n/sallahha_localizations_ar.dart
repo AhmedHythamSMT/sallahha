@@ -16,6 +16,9 @@ class SallahhaLocalizationsAr extends SallahhaLocalizations {
   String get homeSubtitle => 'الطلبات، الفنيون، والمتابعة — نسخة التأسيس';
 
   @override
+  String get greetingPrefix => 'أهلًا';
+
+  @override
   String get foundationOk =>
       'التأسيس يعمل. المرحلة التالية: المصادقة والطلبات.';
 
@@ -38,7 +41,8 @@ class SallahhaLocalizationsAr extends SallahhaLocalizations {
   String get loginTitle => 'تسجيل الدخول';
 
   @override
-  String get loginSubtitle => 'وضع تجريبي — اختر حسابًا للمتابعة';
+  String get loginSubtitle =>
+      'دخول آمن بمعلوماتك — أو جرّب بوضع العرض التجريبي';
 
   @override
   String get emailLabel => 'البريد الإلكتروني';
@@ -51,6 +55,47 @@ class SallahhaLocalizationsAr extends SallahhaLocalizations {
 
   @override
   String get signOutAction => 'خروج';
+
+  @override
+  String get createAccountAction => 'إنشاء حساب جديد';
+
+  @override
+  String get demoModeTitle => 'وضع العرض التجريبي (مقابلات)';
+
+  @override
+  String get demoModeBody =>
+      'بدون بيانات حقيقية — واجهات مملوءة لعرض المنتج، كلمة المرور demo1234';
+
+  @override
+  String get registerTitle => 'إنشاء حساب';
+
+  @override
+  String get registerSubtitle => 'سجّل بياناتك وابدأ — يستغرق أقل من دقيقة';
+
+  @override
+  String get registerNameLabel => 'الاسم';
+
+  @override
+  String get registerPhoneLabel => 'رقم الموبايل';
+
+  @override
+  String get registerRoleLabel => 'الدور';
+
+  @override
+  String get registerAction => 'تسجيل';
+
+  @override
+  String get loginInstead => 'لديك حساب؟ سجّل الدخول';
+
+  @override
+  String get registerCheckEmail =>
+      'تم إنشاء الحساب — تحقق من بريدك لتأكيده ثم سجّل الدخول';
+
+  @override
+  String get registerEmailTaken => 'هذا البريد مستخدم بالفعل';
+
+  @override
+  String get registerPasswordShort => 'كلمة المرور ٨ أحرف على الأقل';
 
   @override
   String get demoHint => 'كلمات المرور تجريبية فقط ولا تستخدم بيانات حقيقية';
@@ -340,4 +385,44 @@ class SallahhaLocalizationsAr extends SallahhaLocalizations {
 
   @override
   String get photoInvalid => 'الصورة يجب أن تكون jpg أو png وبحد أقصى ٥ م.ب';
+
+  @override
+  String get actionSkip => 'تخطي';
+
+  @override
+  String get actionNext => 'التالي';
+
+  @override
+  String get actionStart => 'ابدأ الآن';
+
+  @override
+  String get onbWelcomeTitle => 'أهلًا بك في صلّحها';
+
+  @override
+  String get onbWelcomeBody =>
+      'إدارة الصيانة الميدانية لأجهزة التكييف — من استقبال الطلب حتى إتمامه، كل شيء في مكان واحد.';
+
+  @override
+  String get onbWelcomeTagline => 'صيانة تكييف احترافية تبدأ هنا';
+
+  @override
+  String get onbRequestsTitle => 'طلبات منظمة من البداية';
+
+  @override
+  String get onbRequestsBody =>
+      'العميل يصنع الطلب ويحدد الموعد، يفصلّه النظام حسب الأولوية، ويصل للفني مباشرة.';
+
+  @override
+  String get onbOfflineTitle => 'يعمل بدون إنترنت';
+
+  @override
+  String get onbOfflineBody =>
+      'كل التغييرات تُحفظ أولًا على الجهاز وتُزامَن تلقائيًا عند عودة الاتصال — حتي في المناطق النائية.';
+
+  @override
+  String get onbTeamTitle => 'فريقك متصل في كل لحظة';
+
+  @override
+  String get onbTeamBody =>
+      'عملاء، فنيون، مشرفون، ومديرون — لكل دور واجهته ومتابعته اللحظية من التوزيع حتى التقارير.';
 }

@@ -361,6 +361,29 @@ class LocalRequestStore {
     );
   }
 
+  /// Server-truth mirror: replaces this user's row cache with [items].
+  /// Local ids become the SERVER ids, so mark-read syncs by the same id
+  /// and realtime-triggered pulls converge without duplicates.
+  Future<void> mergeInbox(String userId, List<InboxItem> items) async {
+    await db.transaction(() async {
+      await (db.delete(db.notifications)..where((t) => t.userId.equals(userId)))
+          .go();
+      for (final item in items) {
+        await db.into(db.notifications).insert(
+          drift.NotificationsCompanion(
+            id: Value(item.id),
+            userId: Value(userId),
+            kind: Value(item.kind),
+            title: Value(item.title),
+            body: Value(item.body),
+            readAt: item.read ? Value(DateTime.now()) : const Value(null),
+            createdAt: Value(item.createdAt),
+          ),
+        );
+      }
+    });
+  }
+
   // --- Payments (mock gateway records) ---
 
   Future<void> recordPayment({

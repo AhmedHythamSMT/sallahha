@@ -40,11 +40,23 @@ flutter analyze
 flutter test
 flutter run
 ```
-Build: `flutter build apk --debug`. Demo accounts (seeded Phase 3): `customer@demo.test`, `tech@demo.test`, `supervisor@demo.test`, `admin@demo.test` (password: `demo1234`).
+First launch shows the onboarding flow; "Get started" lands on sign-in. Demo accounts (seeded Phase 3): `customer@demo.test`, `tech@demo.test`, `supervisor@demo.test`, `admin@demo.test` (password: `demo1234`).
 
-## Docs map
-- Product: `docs/product/` (PRD, personas, journeys, stories, glossary, scope, roadmap, risks)
-- Architecture: `docs/architecture/` · Backend: `docs/backend/` · Testing: `docs/testing/` · Security: `docs/security/` · UX: `docs/ux/` · AI: `docs/ai/`
+## Premium UI stack
+Tajawal (Google Fonts) type + Material 3 design system, `flutter_screenutil` responsive sizing, `flutter_animate`/`rive`/`lottie`/`skeletonizer` animation+skeleton toolkit, `material_symbols_icons` glyphs, gradient hero/CTA styling inspired by the `mitesh77/Best-Flutter-UI-Templates` collection. Theme tokens live in `lib/core/theme/app_theme.dart`.
+
+## Supabase (free hosted backend, optional)
+Auth + Postgres + RLS + realtime behind your existing repository interfaces; the app still runs mock/keyless by default.
+
+1. Create a project at [supabase.com](https://supabase.com) (free tier).
+2. Open **SQL editor** → run `docs/backend/supabase.migration.sql` (profiles, requests, RLS, auth trigger).
+3. Copy `.env.example` → `.env` and fill:
+   ```dotenv
+   DATA_SOURCE=mock   # leave mock, or flip to `supabase`
+   SUPABASE_URL=https://<ref>.supabase.co
+   SUPABASE_ANON_KEY=<anon key>
+   ```
+4. `flutter run` — sign-in now goes through Supabase Auth; the matching profile row (role, name, phone) is created on first sign-up and shown in-app. Inspect data from the **Table editor** in your project dashboard or the in-app **Debug DB Viewer**.
 
 ## Inspect the on-device database (debug builds)
 ```powershell
@@ -56,11 +68,14 @@ C:\ADB\sqlite3.exe $env:TEMP\sallahha_device.db "SELECT id, status FROM service_
 (`run-as` works because debug builds are debuggable; `exec-out` via `cmd` keeps the binary intact — PowerShell `>` corrupts it.)
 
 ## Known limitations (honest)
-- This Windows dev host has no Android SDK — `flutter build apk` runs in CI; `analyze` + `test` verified locally.
-- Remote/Supabase adapter, FCM, real payments, OSM pin UI land in Phase 5; foundation compiles with mocks.
+- Remote/Supabase adapter is demo-scoped (auth + profiles wired; request sync lands post-MVP), FCM, real payments, OSM pin UI remain Phase 5.
 - No realtime GPS, chat, accounting, marketplace, photo-AI — intentionally rejected (§ mvp-scope).
 - No compliance claims (MASVS referenced, not certified); demo privacy policy only.
-- Tested on emulator; low-end-device pass scheduled Phase 6.
+- SQLite integration tests skip on a Windows host without `sqlite3.dll`; they run on CI Linux.
+
+## Docs map
+- Product: `docs/product/` (PRD, personas, journeys, stories, glossary, scope, roadmap, risks)
+- Architecture: `docs/architecture/` · Backend: `docs/backend/` (incl. `supabase.migration.sql`) · Testing: `docs/testing/` · Security: `docs/security/` · UX: `docs/ux/` · AI: `docs/ai/`
 
 ## Roadmap
 Phases 0–7 in `docs/product/roadmap.md` (8–10 weeks). Post-MVP: web console → real Paymob/Fawry → FCM prod → second vertical → optional on-device ML only with labeled data.

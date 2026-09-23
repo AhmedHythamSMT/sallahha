@@ -147,6 +147,12 @@ class FakeRequestRepository implements RequestRepository {
 
   @override
   Future<void> retryEntity(String entityId) async {}
+
+  @override
+  Future<void> refreshInbox(String userId) async {}
+
+  @override
+  Future<void> markNotificationRead(String userId, int id) async {}
 }
 
 ServiceRequest fakeRequest({String id = 'req-1', String status = 'new'}) {

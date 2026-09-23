@@ -188,7 +188,7 @@ class RequestDetails {
 /// Inbox entry (notifications table). Stored in Arabic (default locale).
 class InboxItem {
   final int id;
-  final String kind; // assignment|status|confirm|rating
+  final String kind; // new_request|assignment|status|confirm|rating
   final String title;
   final String body;
   final bool read;

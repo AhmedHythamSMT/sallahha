@@ -17,6 +17,9 @@ class SallahhaLocalizationsEn extends SallahhaLocalizations {
       'Requests, technicians, tracking — foundation build';
 
   @override
+  String get greetingPrefix => 'Hello';
+
+  @override
   String get foundationOk => 'Foundation running. Next: auth and requests.';
 
   @override
@@ -38,7 +41,8 @@ class SallahhaLocalizationsEn extends SallahhaLocalizations {
   String get loginTitle => 'Sign in';
 
   @override
-  String get loginSubtitle => 'Demo mode — pick an account to continue';
+  String get loginSubtitle =>
+      'Secure sign-in — or try the demo / interview mode';
 
   @override
   String get emailLabel => 'Email';
@@ -51,6 +55,48 @@ class SallahhaLocalizationsEn extends SallahhaLocalizations {
 
   @override
   String get signOutAction => 'Sign out';
+
+  @override
+  String get createAccountAction => 'Create account';
+
+  @override
+  String get demoModeTitle => 'Demo / interview mode';
+
+  @override
+  String get demoModeBody =>
+      'No real data — pre-filled screens to present the product, password demo1234';
+
+  @override
+  String get registerTitle => 'Create account';
+
+  @override
+  String get registerSubtitle =>
+      'Enter your details and get started — under a minute';
+
+  @override
+  String get registerNameLabel => 'Full name';
+
+  @override
+  String get registerPhoneLabel => 'Mobile number';
+
+  @override
+  String get registerRoleLabel => 'Role';
+
+  @override
+  String get registerAction => 'Sign up';
+
+  @override
+  String get loginInstead => 'Already have an account? Sign in';
+
+  @override
+  String get registerCheckEmail =>
+      'Account created — check your inbox to confirm, then sign in';
+
+  @override
+  String get registerEmailTaken => 'This email is already registered';
+
+  @override
+  String get registerPasswordShort => 'Password must be at least 8 characters';
 
   @override
   String get demoHint => 'Demo passwords only — never use real credentials';
@@ -340,4 +386,44 @@ class SallahhaLocalizationsEn extends SallahhaLocalizations {
 
   @override
   String get photoInvalid => 'Photo must be jpg/png and at most 5 MB';
+
+  @override
+  String get actionSkip => 'Skip';
+
+  @override
+  String get actionNext => 'Next';
+
+  @override
+  String get actionStart => 'Get started';
+
+  @override
+  String get onbWelcomeTitle => 'Welcome to Sallahha';
+
+  @override
+  String get onbWelcomeBody =>
+      'AC field-service management — from request to completion, all in one place.';
+
+  @override
+  String get onbWelcomeTagline => 'Professional AC maintenance starts here';
+
+  @override
+  String get onbRequestsTitle => 'Organized requests';
+
+  @override
+  String get onbRequestsBody =>
+      'Customers create requests with a preferred slot, the system triages, and technicians pick them up.';
+
+  @override
+  String get onbOfflineTitle => 'Works offline';
+
+  @override
+  String get onbOfflineBody =>
+      'Changes save to the device first and sync automatically when back online — even in remote areas.';
+
+  @override
+  String get onbTeamTitle => 'Your team, always connected';
+
+  @override
+  String get onbTeamBody =>
+      'Customers, technicians, supervisors, and admins — each role gets its own live view, from dispatch to reports.';
 }

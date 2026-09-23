@@ -1,9 +1,25 @@
 import 'package:sallahha/core/storage/request_store.dart';
 import 'package:sallahha/features/requests/domain/entities.dart';
 
-/// Notification abstraction. Mock/drift now; FCM adapter later behind a
-/// flag (the app must boot with zero keys — see cost-audit).
-/// Stored strings are Arabic (default locale); kinds are stable codes.
+/// Who a notification is for: explicit users and/or entire roles.
+/// Roles resolve server-side (profiles table); explicit ids are direct.
+class NotifyTarget {
+  final List<String> userIds;
+  final List<String> roles;
+  const NotifyTarget({this.userIds = const [], this.roles = const []});
+
+  NotifyTarget.user(String id)
+      : userIds = [id],
+        roles = const [];
+
+  NotifyTarget.roles(this.roles) : userIds = const [];
+
+  bool get isEmpty => userIds.isEmpty && roles.isEmpty;
+}
+
+/// Notification abstraction. Stored strings are Arabic (default locale);
+/// kinds are stable codes. Inbox is offline-first: optimistic local rows
+/// while offline, replaced by the server mirror on [mergeInbox].
 abstract class NotificationService {
   Future<void> notify({
     required String userId,
@@ -13,6 +29,9 @@ abstract class NotificationService {
   });
   Future<List<InboxItem>> inbox(String userId);
   Future<void> markRead(int id);
+
+  /// Replaces this user's local inbox with the authoritative server rows.
+  Future<void> mergeInbox(String userId, List<InboxItem> items);
 }
 
 class MemoryNotificationService implements NotificationService {
@@ -59,6 +78,11 @@ class MemoryNotificationService implements NotificationService {
       }
     }
   }
+
+  @override
+  Future<void> mergeInbox(String userId, List<InboxItem> items) async {
+    _box[userId] = List.of(items);
+  }
 }
 
 class DriftNotificationService implements NotificationService {
@@ -84,4 +108,8 @@ class DriftNotificationService implements NotificationService {
 
   @override
   Future<void> markRead(int id) => local.markNotificationRead(id);
+
+  @override
+  Future<void> mergeInbox(String userId, List<InboxItem> items) =>
+      local.mergeInbox(userId, items);
 }

@@ -390,6 +390,7 @@ class _LocalThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final file = File(path);
+    final isRemote = path.startsWith('http');
     return Column(
       children: [
         SizedBox(
@@ -397,7 +398,9 @@ class _LocalThumb extends StatelessWidget {
           height: 72,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: file.existsSync()
+            child: isRemote
+                ? Image.network(path, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Icon(Icons.image_outlined, size: 40))
+                : file.existsSync()
                 ? Image.file(file, fit: BoxFit.cover)
                 : const Icon(Icons.image_outlined, size: 40),
           ),

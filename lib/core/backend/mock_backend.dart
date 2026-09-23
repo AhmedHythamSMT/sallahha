@@ -24,6 +24,10 @@ class MockBackend {
   final Map<String, RatingInfo> ratings = {};
   final Set<String> confirmed = {};
 
+  /// Server-side notification store: user id → inbox (server ids).
+  final Map<String, List<InboxItem>> notifications = {};
+  int _notifSeq = 1;
+
   /// Idempotency store for creates: key -> request id.
   final Map<String, String> _createKeys = {};
 
@@ -289,6 +293,63 @@ class MockBackend {
       requestId: requestId,
       stars: stars,
       comment: comment,
+    );
+    return const Ok(null);
+  }
+
+  // ---------- role-to-role notifications ----------
+
+  /// Fan-out to explicit ids + every user whose role is in [roles].
+  /// Mirrors api_push_notifications (SECURITY DEFINER) semantics.
+  Future<Result<void>> pushNotifications({
+    required List<String> userIds,
+    required List<String> roles,
+    required String kind,
+    required String title,
+    required String body,
+  }) async {
+    final targets = <String>{...userIds};
+    for (final u in users.values) {
+      if (roles.contains(u.role)) targets.add(u.id);
+    }
+    if (targets.isEmpty) return const Ok(null);
+    final now = DateTime.now();
+    for (final id in targets) {
+      notifications.putIfAbsent(id, () => []).add(
+        InboxItem(
+          id: _notifSeq++,
+          kind: kind,
+          title: title,
+          body: body,
+          read: false,
+          createdAt: now,
+        ),
+      );
+    }
+    return const Ok(null);
+  }
+
+  /// Server inbox for [userId] (never throws — empty on anomaly).
+  Future<List<InboxItem>> inboxFor(String userId) async =>
+      List.of(notifications[userId] ?? const []);
+
+  /// Marks one recipient's row read; unknown ids are a no-op.
+  Future<Result<void>> markNotificationRead({
+    required int id,
+    required String userId,
+  }) async {
+    final list = notifications[userId];
+    if (list == null) return const Ok(null);
+    final i = list.indexWhere((e) => e.id == id);
+    if (i < 0) return const Ok(null);
+    final e = list[i];
+    list[i] = InboxItem(
+      id: e.id,
+      kind: e.kind,
+      title: e.title,
+      body: e.body,
+      read: true,
+      createdAt: e.createdAt,
     );
     return const Ok(null);
   }

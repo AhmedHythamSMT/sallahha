@@ -39,12 +39,12 @@ class InboxPage extends ConsumerWidget {
                         subtitle: Text(item.body),
                         trailing: Text(item.kind),
                         onTap: () async {
-                          if (!item.read) {
-                            await ref
-                                .read(notificationServiceProvider)
-                                .markRead(item.id);
-                            ref.invalidate(inboxProvider(user!.id));
-                          }
+                          final u = user;
+                          if (u == null || item.read) return;
+                          await ref
+                              .read(requestRepositoryProvider)
+                              .markNotificationRead(u.id, item.id);
+                          ref.invalidate(inboxProvider(u.id));
                         },
                       ),
                     );

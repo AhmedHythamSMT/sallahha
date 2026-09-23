@@ -76,4 +76,14 @@ abstract class RequestRepository {
   Future<void> flushOutbox();
   Future<String> syncState(String entityId); // synced|pending|failed
   Future<void> retryEntity(String entityId);
+
+  // --- role-to-role notifications ---
+
+  /// Pulls the server inbox for [userId] and mirrors it locally
+  /// (offline-first: local rows remain the read path).
+  Future<void> refreshInbox(String userId);
+
+  /// Locally marks read and queues a durable 'read' op so the server
+  /// row (same id after mirror) converges on other devices.
+  Future<void> markNotificationRead(String userId, int id);
 }

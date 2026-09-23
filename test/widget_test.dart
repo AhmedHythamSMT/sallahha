@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,8 +24,16 @@ ProviderScope testScope({String? role, List<Override> extra = const []}) {
 
 void main() {
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
-    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({'onboarding_seen': true});
+    final view = TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .implicitView!;
+    view.physicalSize = const Size(1080, 2340);
+    view.devicePixelRatio = 3.0;
+    addTearDown(() {
+      view.resetPhysicalSize();
+      view.resetDevicePixelRatio();
+    });
   });
 
   testWidgets('signed-out home shows Arabic title + sign-in', (tester) async {

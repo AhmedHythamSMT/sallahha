@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sallahha/app/home_page.dart';
 import 'package:sallahha/core/di/providers.dart';
 import 'package:sallahha/core/routing/unauthorized_page.dart';
 import 'package:sallahha/features/auth/presentation/login_page.dart';
-import 'package:sallahha/features/debug/presentation/debug_database_page.dart';
+import 'package:sallahha/features/auth/presentation/register_page.dart';
 import 'package:sallahha/features/dispatch/presentation/dispatch_page.dart';
 import 'package:sallahha/features/jobs/presentation/job_details_page.dart';
 import 'package:sallahha/features/jobs/presentation/jobs_page.dart';
 import 'package:sallahha/features/notifications/presentation/inbox_page.dart';
+import 'package:sallahha/features/onboarding/onboarding_controller.dart';
+import 'package:sallahha/features/onboarding/presentation/onboarding_page.dart';
 import 'package:sallahha/features/profile/presentation/profile_page.dart';
 import 'package:sallahha/features/reports/presentation/reports_page.dart';
 import 'package:sallahha/features/requests/presentation/new_request_page.dart';
 import 'package:sallahha/features/requests/presentation/request_details_page.dart';
 import 'package:sallahha/features/requests/presentation/requests_page.dart';
-import 'package:sallahha/shared/animations/app_animations.dart';
 
 /// Full MVP route map with role guards (UI-level; server enforces).
 /// Rebuilt when the mock session role changes — cheap for MVP scale.
 final routerProvider = Provider<GoRouter>((ref) {
   final role = ref.watch(sessionRoleProvider);
+  final onboardingSeen = ref.watch(onboardingSeenProvider);
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/onboarding',
     redirect: (context, state) {
       final loc = state.matchedLocation;
+      if (loc == '/onboarding') {
+        return onboardingSeen ? '/' : null;
+      }
       if (loc == '/login') {
+        return role == null ? null : '/';
+      }
+      if (loc == '/register') {
         return role == null ? null : '/';
       }
       if (loc == '/unauthorized' || loc == '/') return null;
@@ -50,12 +57,20 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 List<RouteBase> _routes() => [
   GoRoute(
+    path: '/onboarding',
+    pageBuilder: (context, state) => _slidePage(const OnboardingPage()),
+  ),
+  GoRoute(
     path: '/',
     pageBuilder: (context, state) => _slidePage(const HomePage()),
   ),
   GoRoute(
     path: '/login',
     pageBuilder: (context, state) => _slidePage(const LoginPage()),
+  ),
+  GoRoute(
+    path: '/register',
+    pageBuilder: (context, state) => _slidePage(const RegisterPage()),
   ),
   GoRoute(
     path: '/unauthorized',
@@ -99,45 +114,6 @@ List<RouteBase> _routes() => [
     path: '/notifications',
     pageBuilder: (context, state) => _slidePage(const InboxPage()),
   ),
-  if (kEnableDebugDbViewer)
-    GoRoute(
-      path: '/debug/db',
-      pageBuilder: (context, state) => _slidePage(const DebugDatabasePage()),
-    ),
 ];
 
 MaterialPage<void> _slidePage(Widget child) => MaterialPage<void>(child: child);
-
-Widget _pageForRoute(String location) {
-  switch (location) {
-    case '/':
-      return const HomePage();
-    case '/login':
-      return const LoginPage();
-    case '/unauthorized':
-      return const UnauthorizedPage();
-    case '/requests':
-      return const RequestsPage();
-    case '/requests/new':
-      return const NewRequestPage();
-    case '/dispatch':
-      return const DispatchPage();
-    case '/reports':
-      return const ReportsPage();
-    case '/profile':
-      return const ProfilePage();
-    case '/notifications':
-      return const InboxPage();
-    default:
-      if (location.startsWith('/requests/')) {
-        final id = location.split('/').last;
-        return RequestDetailsPage(id: id);
-      }
-      if (location.startsWith('/jobs/')) {
-        final id = location.split('/').last;
-        return JobDetailsPage(id: id);
-      }
-      if (location == '/jobs') return const JobsPage();
-      return const UnauthorizedPage();
-  }
-}

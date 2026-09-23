@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:sallahha/core/backend/mock_backend.dart';
+import 'package:sallahha/core/config/app_config.dart';
 import 'package:sallahha/core/di/providers.dart';
 import 'package:sallahha/core/errors/app_error.dart';
 import 'package:sallahha/core/errors/error_messages.dart';
@@ -13,74 +13,84 @@ import 'package:sallahha/core/localization/l10n/sallahha_localizations.dart';
 import 'package:sallahha/core/result/result.dart';
 import 'package:sallahha/core/theme/app_theme.dart';
 
-const _demoAccounts = [
-  'customer@demo.test',
-  'tech@demo.test',
-  'supervisor@demo.test',
-  'admin@demo.test',
-];
+const _roleChoices = ['customer', 'technician', 'supervisor', 'admin'];
 
-/// Email+password auth. Primary path is the real backend — Supabase when
-/// `.env` provides credentials, mock otherwise. The demo/interview panel
-/// stays as a secondary shortcut that switches the runtime into demo mode
-/// so product demos always have data.
-class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+/// Real registration (Supabase email+password when configured). In mock
+/// mode it validates locally so interviews can run the full flow keyless.
+class RegisterPage extends ConsumerStatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  ConsumerState<LoginPage> createState() => _LoginPageState();
+  ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
+class _RegisterPageState extends ConsumerState<RegisterPage> {
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  String _role = 'customer';
   String? _error;
+  String? _info;
   bool _busy = false;
-  bool _demoExpanded = false;
 
   @override
   void dispose() {
+    _name.dispose();
+    _phone.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
   }
 
-  Future<void> _submit({bool demo = false}) async {
+  Future<void> _submit() async {
     setState(() {
       _busy = true;
       _error = null;
+      _info = null;
     });
-    if (demo) {
-      ref.read(demoModeProvider.notifier).state = true;
-    } else {
-      ref.read(demoModeProvider.notifier).state = false;
-    }
-    final res = await ref
-        .read(authRepositoryProvider)
-        .signIn(_email.text, _password.text);
+    // Switch out of demo/interview mode before a real sign-up.
+    ref.read(demoModeProvider.notifier).state = false;
+    final res = await ref.read(authRepositoryProvider).signUp(
+      name: _name.text,
+      phone: _phone.text,
+      email: _email.text,
+      password: _password.text,
+      role: _role,
+    );
     if (!mounted) return;
     setState(() => _busy = false);
     switch (res) {
       case Ok(value: final user):
+        final signedIn = AppConfig.isMock ||
+            (user.id.isNotEmpty &&
+                ref
+                    .read(supabaseClientProvider)
+                    ?.auth
+                    .currentSession !=
+                    null);
+        if (!signedIn) {
+          // Supabase with email confirmation enabled.
+          setState(
+            () => _info = SallahhaLocalizations.of(context).registerCheckEmail,
+          );
+          return;
+        }
         ref.read(sessionUserProvider.notifier).state = user;
         await ref.read(sessionStoreProvider).save(user);
         if (!mounted) return;
         context.go('/');
-      case Err(error: Unauthorized()):
-        // Wrong credentials on sign-in reads better than "session expired".
-        setState(() => _error = SallahhaLocalizations.of(context).signInFailed);
+      case Err(error: ValidationFailed(field: final field)):
+        setState(() {
+          _error = field == 'email'
+              ? SallahhaLocalizations.of(context).registerEmailTaken
+              : field == 'password'
+              ? SallahhaLocalizations.of(context).registerPasswordShort
+              : errorMessage(context, res.error);
+        });
       case Err(error: final e):
         setState(() => _error = errorMessage(context, e));
     }
-  }
-
-  /// Demo shortcut: flip the runtime into mock mode, fill the account,
-  /// and sign in against the in-memory fake — always works, even when
-  /// a live backend is configured.
-  Future<void> _demoSignIn(String email) async {
-    _email.text = email;
-    _password.text = MockBackend.demoPassword;
-    await _submit(demo: true);
   }
 
   @override
@@ -112,7 +122,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       Align(
                         alignment: AlignmentDirectional.centerStart,
                         child: IconButton(
-                          onPressed: () => context.go('/'),
+                          onPressed: () => context.go('/login'),
                           icon: const Icon(
                             Symbols.arrow_back_rounded,
                             color: Colors.white,
@@ -128,7 +138,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           borderRadius: BorderRadius.circular(22.r),
                         ),
                         child: Icon(
-                          Symbols.home_repair_service_rounded,
+                          Symbols.badge_rounded,
                           color: Colors.white,
                           size: 40.sp,
                         ),
@@ -139,19 +149,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       SizedBox(height: 16.h),
                       Text(
-                        l.loginTitle,
+                        l.registerTitle,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 26.sp,
                           fontWeight: FontWeight.w800,
                         ),
-                      ).animate().fadeIn(delay: 120.ms).slideX(
-                        begin: -0.15,
-                        end: 0,
-                      ),
+                      ).animate().fadeIn(delay: 120.ms),
                       SizedBox(height: 6.h),
                       Text(
-                        l.loginSubtitle,
+                        l.registerSubtitle,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.82),
                           fontSize: 14.sp,
@@ -166,7 +173,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20.w),
                   child: Container(
-                    padding: EdgeInsets.fromLTRB(20.w, 28.h, 20.w, 24.h),
+                    padding: EdgeInsets.fromLTRB(20.w, 26.h, 20.w, 24.h),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(28.r),
@@ -176,8 +183,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         TextField(
+                          controller: _name,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: l.registerNameLabel,
+                            prefixIcon: const Icon(Symbols.person_rounded),
+                          ),
+                        ),
+                        SizedBox(height: 14.h),
+                        TextField(
+                          controller: _phone,
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: l.registerPhoneLabel,
+                            prefixIcon: const Icon(Symbols.phone_rounded),
+                          ),
+                        ),
+                        SizedBox(height: 14.h),
+                        TextField(
                           controller: _email,
                           keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
                           decoration: InputDecoration(
                             labelText: l.emailLabel,
                             prefixIcon: const Icon(
@@ -195,6 +222,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                           onSubmitted: (_) => _submit(),
                         ),
+                        SizedBox(height: 20.h),
+                        Text(
+                          l.registerRoleLabel,
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 10.h),
+                        Wrap(
+                          spacing: 8.w,
+                          runSpacing: 8.h,
+                          children: [
+                            for (final r in _roleChoices)
+                              ChoiceChip(
+                                label: Text(_roleName(l, r)),
+                                selected: _role == r,
+                                onSelected: (_) => setState(() => _role = r),
+                              ),
+                          ],
+                        ),
                         if (_error != null) ...[
                           SizedBox(height: 12.h),
                           Text(
@@ -203,6 +252,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               color: Theme.of(context).colorScheme.error,
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                        if (_info != null) ...[
+                          SizedBox(height: 12.h),
+                          Text(
+                            _info!,
+                            style: TextStyle(
+                              color: AppTokens.seedDeep,
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -218,81 +278,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : Text(l.signInAction),
+                              : Text(l.registerAction),
                         ),
-                        SizedBox(height: 6.h),
+                        SizedBox(height: 8.h),
                         TextButton(
-                          onPressed: () => context.go('/register'),
-                          child: Text(l.createAccountAction),
+                          onPressed: () => context.go('/login'),
+                          child: Text(l.loginInstead),
                         ),
-                        SizedBox(height: 10.h),
-                        Divider(height: 1.h),
-                        SizedBox(height: 14.h),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(14.r),
-                          onTap: () =>
-                              setState(() => _demoExpanded = !_demoExpanded),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6.w,
-                              vertical: 6.h,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Symbols.science_rounded,
-                                  size: 20.sp,
-                                  color: Colors.grey.shade600,
-                                ),
-                                SizedBox(width: 10.w),
-                                Expanded(
-                                  child: Text(
-                                    l.demoModeTitle,
-                                    style: TextStyle(
-                                      color: Colors.grey.shade700,
-                                      fontSize: 13.sp,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                AnimatedRotation(
-                                  turns: _demoExpanded ? 0.5 : 0,
-                                  duration: const Duration(milliseconds: 200),
-                                  child: Icon(
-                                    Symbols.keyboard_arrow_down_rounded,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        if (_demoExpanded)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              SizedBox(height: 4.h),
-                              Text(
-                                l.demoModeBody,
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 12.sp,
-                                ),
-                              ),
-                              SizedBox(height: 10.h),
-                              for (final email in _demoAccounts)
-                                Padding(
-                                  padding: EdgeInsets.only(bottom: 8.h),
-                                  child: _DemoAccount(
-                                    email: email,
-                                    onTap: () => _demoSignIn(email),
-                                  ),
-                                ),
-                            ],
-                          ),
                       ],
                     ),
                   ),
+                ),
+              ),
+              SizedBox(height: 10.h),
+              TextButton.icon(
+                onPressed: () => context.go('/login'),
+                icon: Icon(Symbols.badge_rounded, size: 18.sp),
+                label: Text(l.demoHint),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade600,
+                  textStyle: TextStyle(fontSize: 12.sp),
                 ),
               ),
               SizedBox(height: 16.h),
@@ -302,49 +307,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     );
   }
-}
 
-class _DemoAccount extends StatelessWidget {
-  final String email;
-  final VoidCallback onTap;
-  const _DemoAccount({required this.email, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final role = email.split('@').first;
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        minimumSize: Size.fromHeight(52.h),
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              email,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13.sp, color: Colors.grey.shade800),
-            ),
-          ),
-          SizedBox(width: 8.w),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-            decoration: BoxDecoration(
-              color: AppTokens.seed.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(20.r),
-            ),
-            child: Text(
-              role.toUpperCase(),
-              style: TextStyle(
-                color: AppTokens.seedDeep,
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _roleName(SallahhaLocalizations l, String role) {
+    return switch (role) {
+      'customer' => l.roleCustomer,
+      'technician' => l.roleTechnician,
+      'supervisor' => l.roleSupervisor,
+      'admin' => l.roleAdmin,
+      _ => role,
+    };
   }
 }

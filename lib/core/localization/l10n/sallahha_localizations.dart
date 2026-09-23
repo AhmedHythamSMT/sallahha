@@ -113,6 +113,12 @@ abstract class SallahhaLocalizations {
   /// **'الطلبات، الفنيون، والمتابعة — نسخة التأسيس'**
   String get homeSubtitle;
 
+  /// No description provided for @greetingPrefix.
+  ///
+  /// In ar, this message translates to:
+  /// **'أهلًا'**
+  String get greetingPrefix;
+
   /// No description provided for @foundationOk.
   ///
   /// In ar, this message translates to:
@@ -158,7 +164,7 @@ abstract class SallahhaLocalizations {
   /// No description provided for @loginSubtitle.
   ///
   /// In ar, this message translates to:
-  /// **'وضع تجريبي — اختر حسابًا للمتابعة'**
+  /// **'دخول آمن بمعلوماتك — أو جرّب بوضع العرض التجريبي'**
   String get loginSubtitle;
 
   /// No description provided for @emailLabel.
@@ -184,6 +190,84 @@ abstract class SallahhaLocalizations {
   /// In ar, this message translates to:
   /// **'خروج'**
   String get signOutAction;
+
+  /// No description provided for @createAccountAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'إنشاء حساب جديد'**
+  String get createAccountAction;
+
+  /// No description provided for @demoModeTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'وضع العرض التجريبي (مقابلات)'**
+  String get demoModeTitle;
+
+  /// No description provided for @demoModeBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'بدون بيانات حقيقية — واجهات مملوءة لعرض المنتج، كلمة المرور demo1234'**
+  String get demoModeBody;
+
+  /// No description provided for @registerTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'إنشاء حساب'**
+  String get registerTitle;
+
+  /// No description provided for @registerSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجّل بياناتك وابدأ — يستغرق أقل من دقيقة'**
+  String get registerSubtitle;
+
+  /// No description provided for @registerNameLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الاسم'**
+  String get registerNameLabel;
+
+  /// No description provided for @registerPhoneLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'رقم الموبايل'**
+  String get registerPhoneLabel;
+
+  /// No description provided for @registerRoleLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الدور'**
+  String get registerRoleLabel;
+
+  /// No description provided for @registerAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل'**
+  String get registerAction;
+
+  /// No description provided for @loginInstead.
+  ///
+  /// In ar, this message translates to:
+  /// **'لديك حساب؟ سجّل الدخول'**
+  String get loginInstead;
+
+  /// No description provided for @registerCheckEmail.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم إنشاء الحساب — تحقق من بريدك لتأكيده ثم سجّل الدخول'**
+  String get registerCheckEmail;
+
+  /// No description provided for @registerEmailTaken.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا البريد مستخدم بالفعل'**
+  String get registerEmailTaken;
+
+  /// No description provided for @registerPasswordShort.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور ٨ أحرف على الأقل'**
+  String get registerPasswordShort;
 
   /// No description provided for @demoHint.
   ///
@@ -760,6 +844,78 @@ abstract class SallahhaLocalizations {
   /// In ar, this message translates to:
   /// **'الصورة يجب أن تكون jpg أو png وبحد أقصى ٥ م.ب'**
   String get photoInvalid;
+
+  /// No description provided for @actionSkip.
+  ///
+  /// In ar, this message translates to:
+  /// **'تخطي'**
+  String get actionSkip;
+
+  /// No description provided for @actionNext.
+  ///
+  /// In ar, this message translates to:
+  /// **'التالي'**
+  String get actionNext;
+
+  /// No description provided for @actionStart.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابدأ الآن'**
+  String get actionStart;
+
+  /// No description provided for @onbWelcomeTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أهلًا بك في صلّحها'**
+  String get onbWelcomeTitle;
+
+  /// No description provided for @onbWelcomeBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'إدارة الصيانة الميدانية لأجهزة التكييف — من استقبال الطلب حتى إتمامه، كل شيء في مكان واحد.'**
+  String get onbWelcomeBody;
+
+  /// No description provided for @onbWelcomeTagline.
+  ///
+  /// In ar, this message translates to:
+  /// **'صيانة تكييف احترافية تبدأ هنا'**
+  String get onbWelcomeTagline;
+
+  /// No description provided for @onbRequestsTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'طلبات منظمة من البداية'**
+  String get onbRequestsTitle;
+
+  /// No description provided for @onbRequestsBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'العميل يصنع الطلب ويحدد الموعد، يفصلّه النظام حسب الأولوية، ويصل للفني مباشرة.'**
+  String get onbRequestsBody;
+
+  /// No description provided for @onbOfflineTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'يعمل بدون إنترنت'**
+  String get onbOfflineTitle;
+
+  /// No description provided for @onbOfflineBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'كل التغييرات تُحفظ أولًا على الجهاز وتُزامَن تلقائيًا عند عودة الاتصال — حتي في المناطق النائية.'**
+  String get onbOfflineBody;
+
+  /// No description provided for @onbTeamTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'فريقك متصل في كل لحظة'**
+  String get onbTeamTitle;
+
+  /// No description provided for @onbTeamBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'عملاء، فنيون، مشرفون، ومديرون — لكل دور واجهته ومتابعته اللحظية من التوزيع حتى التقارير.'**
+  String get onbTeamBody;
 }
 
 class _SallahhaLocalizationsDelegate

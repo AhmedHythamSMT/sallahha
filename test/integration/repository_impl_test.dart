@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sallahha/core/analytics/analytics_service.dart';
 import 'package:sallahha/core/backend/mock_backend.dart';
+import 'package:sallahha/core/backend/mock_remote_api.dart';
 import 'package:sallahha/core/result/result.dart';
 import 'package:sallahha/core/storage/app_database.dart' hide ServiceRequest;
 import 'package:sallahha/core/storage/request_store.dart';
@@ -24,7 +25,7 @@ void main() {
         final notifications = MemoryNotificationService();
         final analytics = MemoryAnalyticsService();
         final repo = RequestRepositoryImpl(
-          remote: backend,
+          remote: MockRemoteApi(backend),
           local: LocalRequestStore(db),
           isOnline: () async => true,
           notifications: notifications,
@@ -114,7 +115,7 @@ void main() {
         var online = false;
         final oplog = MemoryOpLog();
         final repo = RequestRepositoryImpl(
-          remote: backend,
+          remote: MockRemoteApi(backend),
           local: LocalRequestStore(db),
           oplog: oplog,
           isOnline: () async => online,

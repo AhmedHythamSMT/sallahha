@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:sallahha/core/analytics/analytics_service.dart';
-import 'package:sallahha/core/backend/mock_backend.dart';
+import 'package:sallahha/core/backend/remote_api.dart';
 import 'package:sallahha/core/errors/app_error.dart';
 import 'package:sallahha/core/result/result.dart';
 import 'package:sallahha/core/storage/request_store.dart';
@@ -19,7 +19,7 @@ import 'package:sallahha/features/requests/domain/rules.dart';
 /// flushes when online. Reads always render local data; remote refreshes
 /// only when connected AND nothing is pending for the entity.
 class RequestRepositoryImpl implements RequestRepository {
-  final MockBackend remote;
+  final RemoteApi remote;
   final LocalRequestStore local;
   final OpLog oplog;
   final Future<bool> Function() isOnline;
@@ -90,6 +90,7 @@ class RequestRepositoryImpl implements RequestRepository {
   @override
   Future<Result<List<ServiceRequest>>> listForUser(AppUser user) async {
     if (await _online()) {
+      await remote.refresh();
       final all = remote.requests.values.toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       await local.upsertRequests(all);
@@ -108,6 +109,7 @@ class RequestRepositoryImpl implements RequestRepository {
   @override
   Future<Result<List<ServiceRequest>>> dispatchQueue(String view) async {
     if (await _online()) {
+      await remote.refresh();
       final now = DateTime.now();
       final all = remote.requests.values.toList();
       final filtered = switch (view) {
@@ -155,6 +157,7 @@ class RequestRepositoryImpl implements RequestRepository {
   @override
   Future<Result<Map<String, int>>> technicianWorkload() async {
     if (await _online()) {
+      await remote.refresh();
       final counts = <String, int>{};
       for (final a in remote.assignments.values) {
         final req = remote.requests[a.requestId];
@@ -191,6 +194,7 @@ class RequestRepositoryImpl implements RequestRepository {
 
   /// Replace local collections from remote (only when nothing pending).
   Future<void> _mirrorBundle(String id) async {
+    await remote.refresh();
     final req = remote.requests[id];
     if (req == null) return;
     await local.upsertRequests([req]);
@@ -219,6 +223,7 @@ class RequestRepositoryImpl implements RequestRepository {
   @override
   Future<Result<List<ServiceInfo>>> services() async {
     if (await _online()) {
+      await remote.refresh();
       final list = remote.services.values.toList();
       await local.upsertServices(list);
       return Ok(list);
@@ -229,6 +234,7 @@ class RequestRepositoryImpl implements RequestRepository {
   @override
   Future<Result<List<AppUser>>> technicians() async {
     if (await _online()) {
+      await remote.refresh();
       await local.upsertUsers(remote.users.values.toList());
     }
     final cached = await local.allRequests();
@@ -247,14 +253,56 @@ class RequestRepositoryImpl implements RequestRepository {
     required String opType,
     required Map<String, dynamic> payload,
     String? opId,
+    String entityType = 'request',
   }) {
     return SyncOp(
       opId: opId ?? _newId('op'),
-      entityType: 'request',
+      entityType: entityType,
       entityId: entityId,
       opType: opType,
       payload: payload,
       createdAt: DateTime.now(),
+    );
+  }
+
+  /// Fan a notification out to [target]. Offline-first: recipients are
+  /// resolved locally from the users mirror (only the acting device sees
+  /// them instantly), AND a durable 'notify' op fans out server-side so
+  /// every recipient's other devices converge via realtime/pull.
+  Future<void> _notify(
+    NotifyTarget target, {
+    required String kind,
+    required String title,
+    required String body,
+  }) async {
+    if (target.isEmpty) return;
+    final ids = <String>{...target.userIds};
+    for (final u in remote.users.values) {
+      if (target.roles.contains(u.role)) ids.add(u.id);
+    }
+    for (final id in ids) {
+      await notifications.notify(
+        userId: id,
+        kind: kind,
+        title: title,
+        body: body,
+      );
+    }
+    final opId = _newId('op');
+    await _enqueue(
+      _op(
+        opId: opId,
+        entityType: 'notification',
+        entityId: 'notif-$opId',
+        opType: 'notify',
+        payload: {
+          'userIds': target.userIds,
+          'roles': target.roles,
+          'kind': kind,
+          'title': title,
+          'body': body,
+        },
+      ),
     );
   }
 
@@ -268,9 +316,14 @@ class RequestRepositoryImpl implements RequestRepository {
     );
     if (field != null) return Err(ValidationFailed(field));
     final online = await _online();
-    final service = online
+    var service = online
         ? remote.services[d.serviceId]
         : await _cachedService(d.serviceId);
+    if (online && service == null) {
+      // Catalogue may not be mirrored yet on first use; prime it.
+      await remote.refresh();
+      service = remote.services[d.serviceId];
+    }
     if (service == null) return const Err(ValidationFailed('serviceId'));
 
     final now = DateTime.now();
@@ -325,6 +378,12 @@ class RequestRepositoryImpl implements RequestRepository {
       final existing = await local.requestById(id);
       if (existing != null) return Ok(existing);
     }
+    await _notify(
+      NotifyTarget.roles(['admin', 'supervisor']),
+      kind: 'new_request',
+      title: 'طلب جديد',
+      body: '#$id — بانتظار التوجيه',
+    );
     await engine.flush();
     return Ok((await local.requestById(id)) ?? req);
   }
@@ -332,6 +391,14 @@ class RequestRepositoryImpl implements RequestRepository {
   Future<ServiceInfo?> _cachedService(String id) async {
     final list = await local.cachedServices();
     return list.where((s) => s.id == id).firstOrNull;
+  }
+
+  Future<List<PartInfo>> _onlineParts() async {
+    final res = await remote.partsCatalog();
+    return switch (res) {
+      Ok(value: final v) => v,
+      Err() => const [],
+    };
   }
 
   @override
@@ -378,8 +445,8 @@ class RequestRepositoryImpl implements RequestRepository {
         assignedBy: by.id,
       ),
     );
-    await notifications.notify(
-      userId: technicianId,
+    await _notify(
+      NotifyTarget.user(technicianId),
       kind: 'assignment',
       title: 'طلب جديد مُسند',
       body: '#$requestId — بانتظار القبول',
@@ -497,8 +564,11 @@ class RequestRepositoryImpl implements RequestRepository {
       return Ok(existing ?? current);
     }
     await _applyHeader(current, status: to, byId: by.id, reason: reason);
-    await notifications.notify(
-      userId: current.customerId,
+    await _notify(
+      NotifyTarget(
+        userIds: [current.customerId],
+        roles: const ['admin', 'supervisor'],
+      ),
       kind: 'status',
       title: 'تحديث الطلب',
       body: '#$requestId: $to',
@@ -579,7 +649,9 @@ class RequestRepositoryImpl implements RequestRepository {
   }) async {
     if (qty < 1) return const Err(ValidationFailed('qty'));
     final online = await _online();
-    final catalog = online ? remote.partsCatalog() : await local.cachedParts();
+    final catalog = online
+        ? await _onlineParts()
+        : await local.cachedParts();
     final match = catalog.where((p) => p.id == partId).firstOrNull;
     if (match == null) return const Err(ValidationFailed('partId'));
     final fresh = await _enqueue(
@@ -653,14 +725,15 @@ class RequestRepositoryImpl implements RequestRepository {
     final dispatcher =
         (await local.assignment(requestId))?.assignedBy ??
         remote.assignments[requestId]?.assignedBy;
-    if (dispatcher != null) {
-      await notifications.notify(
-        userId: dispatcher,
-        kind: 'confirm',
-        title: 'تم تأكيد الاستلام',
-        body: '#$requestId',
-      );
-    }
+    await _notify(
+      NotifyTarget(
+        userIds: dispatcher == null ? const [] : [dispatcher],
+        roles: const ['admin'],
+      ),
+      kind: 'confirm',
+      title: 'تم تأكيد الاستلام',
+      body: '#$requestId',
+    );
     analytics.log('confirmed', {'id': requestId});
     await engine.flush();
     return const Ok(null);
@@ -691,8 +764,8 @@ class RequestRepositoryImpl implements RequestRepository {
         (await local.assignment(requestId))?.technicianId ??
         remote.assignments[requestId]?.technicianId;
     if (techId != null) {
-      await notifications.notify(
-        userId: techId,
+      await _notify(
+        NotifyTarget.user(techId),
         kind: 'rating',
         title: 'تقييم جديد',
         body: '#$requestId: $stars★',
@@ -727,7 +800,7 @@ class RequestRepositoryImpl implements RequestRepository {
           return _classify(res);
         case 'assign':
           return _classify(
-            remote.assign(
+            await remote.assign(
               byId: p['byId'] as String,
               requestId: op.entityId,
               technicianId: p['technicianId'] as String,
@@ -735,7 +808,7 @@ class RequestRepositoryImpl implements RequestRepository {
           );
         case 'priority':
           return _classify(
-            remote.setPriority(
+            await remote.setPriority(
               requestId: op.entityId,
               priority: p['priority'] as String,
               baseVersion: (p['baseVersion'] as num).toInt(),
@@ -743,7 +816,7 @@ class RequestRepositoryImpl implements RequestRepository {
           );
         case 'status':
           return _classify(
-            remote.transition(
+            await remote.transition(
               byId: p['byId'] as String,
               requestId: op.entityId,
               to: p['to'] as String,
@@ -752,28 +825,30 @@ class RequestRepositoryImpl implements RequestRepository {
             ),
           );
         case 'note':
-          remote.addNote(
-            JobNote(
-              requestId: op.entityId,
-              authorId: p['authorId'] as String,
-              kind: p['kind'] as String,
-              body: p['body'] as String,
-              createdAt: DateTime.now(),
+          return _classify(
+            await remote.addNote(
+              JobNote(
+                requestId: op.entityId,
+                authorId: p['authorId'] as String,
+                kind: p['kind'] as String,
+                body: p['body'] as String,
+                createdAt: DateTime.now(),
+              ),
             ),
           );
-          return (ReplayOutcome.applied, null);
         case 'photo':
-          remote.addPhoto(
-            JobPhoto(
-              requestId: op.entityId,
-              kind: p['kind'] as String,
-              localPath: p['localPath'] as String,
+          return _classify(
+            await remote.addPhoto(
+              JobPhoto(
+                requestId: op.entityId,
+                kind: p['kind'] as String,
+                localPath: p['localPath'] as String,
+              ),
             ),
           );
-          return (ReplayOutcome.applied, null);
         case 'part':
           return _classify(
-            remote.addPart(
+            await remote.addPart(
               requestId: op.entityId,
               partId: p['partId'] as String,
               qty: (p['qty'] as num).toInt(),
@@ -781,19 +856,37 @@ class RequestRepositoryImpl implements RequestRepository {
           );
         case 'estimate':
           return _classify(
-            remote.setEstimate(
+            await remote.setEstimate(
               requestId: op.entityId,
               amountEgp: (p['amountEgp'] as num).toInt(),
             ),
           );
         case 'confirm':
-          return _classify(remote.confirm(requestId: op.entityId));
+          return _classify(await remote.confirm(requestId: op.entityId));
         case 'rate':
           return _classify(
-            remote.rate(
+            await remote.rate(
               requestId: op.entityId,
               stars: (p['stars'] as num).toInt(),
               comment: p['comment'] as String?,
+            ),
+          );
+        case 'notify':
+          return _classify(
+            await remote.pushNotifications(
+              userIds: (p['userIds'] as List<dynamic>? ?? const [])
+                  .cast<String>(),
+              roles: (p['roles'] as List<dynamic>? ?? const []).cast<String>(),
+              kind: p['kind'] as String,
+              title: p['title'] as String,
+              body: p['body'] as String,
+            ),
+          );
+        case 'read':
+          return _classify(
+            await remote.markNotificationRead(
+              id: (p['id'] as num).toInt(),
+              userId: p['userId'] as String,
             ),
           );
         default:
@@ -838,7 +931,7 @@ class RequestRepositoryImpl implements RequestRepository {
     if (op.opType == 'status') {
       final to = p['to'] as String;
       if (!canTransitionRemote(current.status, to)) return false;
-      res = remote.transition(
+      res = await remote.transition(
         byId: p['byId'] as String,
         requestId: op.entityId,
         to: to,
@@ -846,7 +939,7 @@ class RequestRepositoryImpl implements RequestRepository {
         reason: p['reason'] as String?,
       );
     } else if (op.opType == 'priority') {
-      res = remote.setPriority(
+      res = await remote.setPriority(
         requestId: op.entityId,
         priority: p['priority'] as String,
         baseVersion: current.version,
@@ -880,6 +973,31 @@ class RequestRepositoryImpl implements RequestRepository {
 
   @override
   Future<void> flushOutbox() async {
+    await engine.flush();
+  }
+
+  // ---------- role-to-role notifications ----------
+
+  @override
+  Future<void> refreshInbox(String userId) async {
+    if (!await _online()) return;
+    final items = await remote.pullInbox(userId);
+    await notifications.mergeInbox(userId, items);
+  }
+
+  @override
+  Future<void> markNotificationRead(String userId, int id) async {
+    await notifications.markRead(id);
+    final opId = _newId('op');
+    await _enqueue(
+      _op(
+        opId: opId,
+        entityType: 'notification',
+        entityId: 'notif-read-$opId',
+        opType: 'read',
+        payload: {'id': id, 'userId': userId},
+      ),
+    );
     await engine.flush();
   }
 }

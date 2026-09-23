@@ -33,10 +33,10 @@ class AppAnimations {
     Duration duration = fast,
   }) {
     return _ScaleOnTap(
-      child: child,
       onTap: onTap,
       scale: scale,
       duration: duration,
+      child: child,
     );
   }
 
@@ -226,12 +226,11 @@ class SlideFadePageRoute<T> extends PageRouteBuilder<T> {
   SlideFadePageRoute({
     required this.page,
     this.duration = AppAnimations.normal,
-    RouteSettings? settings,
+    super.settings,
   }) : super(
          pageBuilder: (context, animation, secondaryAnimation) => page,
          transitionDuration: duration,
          reverseTransitionDuration: duration,
-         settings: settings,
          transitionsBuilder: (context, animation, secondaryAnimation, child) {
            return SlideTransition(
              position:
