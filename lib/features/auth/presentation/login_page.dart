@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:sallahha/core/backend/mock_backend.dart';
 import 'package:sallahha/core/di/providers.dart';
 import 'package:sallahha/core/errors/app_error.dart';
 import 'package:sallahha/core/errors/error_messages.dart';
@@ -13,17 +12,7 @@ import 'package:sallahha/core/localization/l10n/sallahha_localizations.dart';
 import 'package:sallahha/core/result/result.dart';
 import 'package:sallahha/core/theme/app_theme.dart';
 
-const _demoAccounts = [
-  'customer@demo.test',
-  'tech@demo.test',
-  'supervisor@demo.test',
-  'admin@demo.test',
-];
-
-/// Email+password auth. Primary path is the real backend — Supabase when
-/// `.env` provides credentials, mock otherwise. The demo/interview panel
-/// stays as a secondary shortcut that switches the runtime into demo mode
-/// so product demos always have data.
+/// Email+password auth against the real backend (Supabase).
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -36,7 +25,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _password = TextEditingController();
   String? _error;
   bool _busy = false;
-  bool _demoExpanded = false;
 
   @override
   void dispose() {
@@ -45,16 +33,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
-  Future<void> _submit({bool demo = false}) async {
+  Future<void> _submit() async {
     setState(() {
       _busy = true;
       _error = null;
     });
-    if (demo) {
-      ref.read(demoModeProvider.notifier).state = true;
-    } else {
-      ref.read(demoModeProvider.notifier).state = false;
-    }
     final res = await ref
         .read(authRepositoryProvider)
         .signIn(_email.text, _password.text);
@@ -63,7 +46,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     switch (res) {
       case Ok(value: final user):
         ref.read(sessionUserProvider.notifier).state = user;
-        await ref.read(sessionStoreProvider).save(user);
         if (!mounted) return;
         context.go('/');
       case Err(error: Unauthorized()):
@@ -72,15 +54,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       case Err(error: final e):
         setState(() => _error = errorMessage(context, e));
     }
-  }
-
-  /// Demo shortcut: flip the runtime into mock mode, fill the account,
-  /// and sign in against the in-memory fake — always works, even when
-  /// a live backend is configured.
-  Future<void> _demoSignIn(String email) async {
-    _email.text = email;
-    _password.text = MockBackend.demoPassword;
-    await _submit(demo: true);
   }
 
   @override
@@ -225,71 +198,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           onPressed: () => context.go('/register'),
                           child: Text(l.createAccountAction),
                         ),
-                        SizedBox(height: 10.h),
-                        Divider(height: 1.h),
-                        SizedBox(height: 14.h),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(14.r),
-                          onTap: () =>
-                              setState(() => _demoExpanded = !_demoExpanded),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6.w,
-                              vertical: 6.h,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Symbols.science_rounded,
-                                  size: 20.sp,
-                                  color: Colors.grey.shade600,
-                                ),
-                                SizedBox(width: 10.w),
-                                Expanded(
-                                  child: Text(
-                                    l.demoModeTitle,
-                                    style: TextStyle(
-                                      color: Colors.grey.shade700,
-                                      fontSize: 13.sp,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                AnimatedRotation(
-                                  turns: _demoExpanded ? 0.5 : 0,
-                                  duration: const Duration(milliseconds: 200),
-                                  child: Icon(
-                                    Symbols.keyboard_arrow_down_rounded,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        if (_demoExpanded)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              SizedBox(height: 4.h),
-                              Text(
-                                l.demoModeBody,
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 12.sp,
-                                ),
-                              ),
-                              SizedBox(height: 10.h),
-                              for (final email in _demoAccounts)
-                                Padding(
-                                  padding: EdgeInsets.only(bottom: 8.h),
-                                  child: _DemoAccount(
-                                    email: email,
-                                    onTap: () => _demoSignIn(email),
-                                  ),
-                                ),
-                            ],
-                          ),
                       ],
                     ),
                   ),
@@ -299,51 +207,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _DemoAccount extends StatelessWidget {
-  final String email;
-  final VoidCallback onTap;
-  const _DemoAccount({required this.email, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final role = email.split('@').first;
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        minimumSize: Size.fromHeight(52.h),
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              email,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13.sp, color: Colors.grey.shade800),
-            ),
-          ),
-          SizedBox(width: 8.w),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-            decoration: BoxDecoration(
-              color: AppTokens.seed.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(20.r),
-            ),
-            child: Text(
-              role.toUpperCase(),
-              style: TextStyle(
-                color: AppTokens.seedDeep,
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

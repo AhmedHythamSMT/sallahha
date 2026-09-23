@@ -6,15 +6,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sallahha/app/app.dart';
+import 'package:sallahha/core/backend/mock_backend.dart';
 import 'package:sallahha/core/di/providers.dart';
 import 'package:sallahha/core/routing/router.dart';
+import 'package:sallahha/features/auth/data/mock_auth_repository.dart';
+
+import 'helpers/fake_repository.dart';
+
+FakeRequestRepository _fakeRepo() => FakeRequestRepository(
+  serviceList: const [],
+  techList: const [],
+  requests: [fakeRequest()],
+  detailsMap: {'req-1': fakeDetails(fakeRequest())},
+);
+
+/// Widget tests run against in-memory doubles; the production providers
+/// throw when Supabase is unconfigured, so override the backend surface.
+List<Override> _backendOverrides() => [
+  connectivityProvider.overrideWith(
+    (ref) => Stream.value([ConnectivityResult.wifi]),
+  ),
+  requestRepositoryProvider.overrideWith((ref) => _fakeRepo()),
+  authRepositoryProvider.overrideWith(
+    (ref) => MockAuthRepository(MockBackend()),
+  ),
+];
 
 ProviderScope testScope({String? role, List<Override> extra = const []}) {
   return ProviderScope(
     overrides: [
-      connectivityProvider.overrideWith(
-        (ref) => Stream.value([ConnectivityResult.wifi]),
-      ),
+      ..._backendOverrides(),
       if (role != null) sessionRoleProvider.overrideWith((ref) => role),
       ...extra,
     ],
@@ -70,9 +91,7 @@ void main() {
   ) async {
     final container = ProviderContainer(
       overrides: [
-        connectivityProvider.overrideWith(
-          (ref) => Stream.value([ConnectivityResult.wifi]),
-        ),
+        ..._backendOverrides(),
         sessionRoleProvider.overrideWith((ref) => 'customer'),
       ],
     );
@@ -98,6 +117,10 @@ void main() {
           connectivityProvider.overrideWith(
             (ref) => Stream.value([ConnectivityResult.none]),
           ),
+          requestRepositoryProvider.overrideWith((ref) => _fakeRepo()),
+          authRepositoryProvider.overrideWith(
+            (ref) => MockAuthRepository(MockBackend()),
+          ),
         ],
         child: const SallahhaApp(),
       ),
@@ -113,11 +136,7 @@ void main() {
     tester,
   ) async {
     final container = ProviderContainer(
-      overrides: [
-        connectivityProvider.overrideWith(
-          (ref) => Stream.value([ConnectivityResult.wifi]),
-        ),
-      ],
+      overrides: _backendOverrides(),
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(

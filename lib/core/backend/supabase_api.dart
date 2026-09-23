@@ -47,19 +47,37 @@ class SupabaseApi implements RemoteApi {
 
   // ---------- reads ----------
 
+  DateTime? _lastRefreshAt;
+
+  /// Rate-limit window for [refresh] so consecutive invalidations (poller,
+  /// realtime, list+detail refreshes, connectivity reconnects) don't each
+  /// pay the full multi-table mirror cost. Short enough to stay fresh,
+  /// long enough to keep opening a job after a list load near-instant.
+  static const _refreshRateLimit = Duration(seconds: 8);
+
   /// Best-effort mirror. Each pull is isolated so one flaky table never
-  /// bricks the read path; previous maps survive on failure.
+  /// bricks the read path; previous maps survive on failure. Pulls run in
+  /// PARALLEL (one round-trip instead of nine) and the whole refresh is
+  /// rate-limited so hot paths don't hammer PostgREST.
   @override
   Future<void> refresh() async {
-    await _pullRequests();
-    await _pullUsers();
-    await _pullServices();
-    await _pullAssignments();
-    await _pullTimelines();
-    await _pullNotes();
-    await _pullPhotos();
-    await _pullPartUsage();
-    await _pullRatings();
+    final now = DateTime.now();
+    final last = _lastRefreshAt;
+    if (last != null && now.difference(last) < _refreshRateLimit) {
+      return;
+    }
+    _lastRefreshAt = now;
+    await Future.wait([
+      _pullRequests(),
+      _pullUsers(),
+      _pullServices(),
+      _pullAssignments(),
+      _pullTimelines(),
+      _pullNotes(),
+      _pullPhotos(),
+      _pullPartUsage(),
+      _pullRatings(),
+    ]);
   }
 
   Future<void> _guard(Future<void> Function() fn) async {

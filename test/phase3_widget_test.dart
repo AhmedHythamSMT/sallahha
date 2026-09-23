@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sallahha/app/app.dart';
+import 'package:sallahha/core/backend/mock_backend.dart';
 import 'package:sallahha/core/di/providers.dart';
 import 'package:sallahha/core/routing/router.dart';
+import 'package:sallahha/features/auth/data/mock_auth_repository.dart';
 import 'package:sallahha/features/notifications/notification_service.dart';
 import 'package:sallahha/features/requests/domain/entities.dart';
 
@@ -59,6 +61,11 @@ ProviderContainer _container(FakeRequestRepository fake, {AppUser? user}) {
         (ref) => Stream.value([ConnectivityResult.wifi]),
       ),
       requestRepositoryProvider.overrideWith((ref) => fake),
+      // Real auth requires Supabase; keep these widget tests on the
+      // domain-authentic in-memory double.
+      authRepositoryProvider.overrideWith(
+        (ref) => MockAuthRepository(MockBackend()),
+      ),
       if (user != null) sessionUserProvider.overrideWith((ref) => user),
     ],
   );
@@ -104,7 +111,7 @@ void main() {
     expect(find.text('بيانات الدخول غير صحيحة'), findsOneWidget);
   });
 
-  testWidgets('demo customer login lands on role home', (tester) async {
+  testWidgets('customer login lands on role home', (tester) async {
     final container = _container(_fake());
     addTearDown(container.dispose);
     await tester.pumpWidget(
@@ -117,14 +124,15 @@ void main() {
     container.read(routerProvider).go('/login');
     await tester.pumpAndSettle();
 
-    // Expand the secondary demo/interview panel, then pick an account.
-    final demoHeader = find.text('وضع العرض التجريبي (مقابلات)');
-    await tester.ensureVisible(demoHeader);
-    await tester.tap(demoHeader);
-    await tester.pumpAndSettle();
-    final account = find.text('customer@demo.test');
-    await tester.ensureVisible(account);
-    await tester.tap(account);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'البريد الإلكتروني'),
+      'customer@demo.test',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'كلمة المرور'),
+      'demo1234',
+    );
+    await tester.tap(find.text('دخول'));
     await tester.pumpAndSettle();
     expect(find.text('Salma Ahmed'), findsOneWidget);
     expect(find.text('طلب صيانة جديد'), findsOneWidget);

@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:sallahha/core/config/app_config.dart';
 import 'package:sallahha/core/di/providers.dart';
 import 'package:sallahha/core/errors/app_error.dart';
 import 'package:sallahha/core/errors/error_messages.dart';
@@ -15,8 +14,7 @@ import 'package:sallahha/core/theme/app_theme.dart';
 
 const _roleChoices = ['customer', 'technician', 'supervisor', 'admin'];
 
-/// Real registration (Supabase email+password when configured). In mock
-/// mode it validates locally so interviews can run the full flow keyless.
+/// Real registration (Supabase email+password when configured).
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
@@ -49,8 +47,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       _error = null;
       _info = null;
     });
-    // Switch out of demo/interview mode before a real sign-up.
-    ref.read(demoModeProvider.notifier).state = false;
     final res = await ref.read(authRepositoryProvider).signUp(
       name: _name.text,
       phone: _phone.text,
@@ -62,13 +58,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     setState(() => _busy = false);
     switch (res) {
       case Ok(value: final user):
-        final signedIn = AppConfig.isMock ||
-            (user.id.isNotEmpty &&
-                ref
-                    .read(supabaseClientProvider)
-                    ?.auth
-                    .currentSession !=
-                    null);
+        final signedIn = user.id.isNotEmpty &&
+            ref.read(supabaseClientProvider)?.auth.currentSession != null;
         if (!signedIn) {
           // Supabase with email confirmation enabled.
           setState(
@@ -77,7 +68,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           return;
         }
         ref.read(sessionUserProvider.notifier).state = user;
-        await ref.read(sessionStoreProvider).save(user);
         if (!mounted) return;
         context.go('/');
       case Err(error: ValidationFailed(field: final field)):
@@ -288,16 +278,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       ],
                     ),
                   ),
-                ),
-              ),
-              SizedBox(height: 10.h),
-              TextButton.icon(
-                onPressed: () => context.go('/login'),
-                icon: Icon(Symbols.badge_rounded, size: 18.sp),
-                label: Text(l.demoHint),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey.shade600,
-                  textStyle: TextStyle(fontSize: 12.sp),
                 ),
               ),
               SizedBox(height: 16.h),

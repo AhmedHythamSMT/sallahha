@@ -37,7 +37,6 @@ class ProfilePage extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               await ref.read(authRepositoryProvider).signOut();
-              await ref.read(sessionStoreProvider).clear();
               ref.read(sessionUserProvider.notifier).state = null;
               if (context.mounted) context.go('/login');
             },

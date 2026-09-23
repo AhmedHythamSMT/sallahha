@@ -41,8 +41,7 @@ class SallahhaLocalizationsEn extends SallahhaLocalizations {
   String get loginTitle => 'Sign in';
 
   @override
-  String get loginSubtitle =>
-      'Secure sign-in — or try the demo / interview mode';
+  String get loginSubtitle => 'Secure sign-in to your account';
 
   @override
   String get emailLabel => 'Email';
@@ -58,13 +57,6 @@ class SallahhaLocalizationsEn extends SallahhaLocalizations {
 
   @override
   String get createAccountAction => 'Create account';
-
-  @override
-  String get demoModeTitle => 'Demo / interview mode';
-
-  @override
-  String get demoModeBody =>
-      'No real data — pre-filled screens to present the product, password demo1234';
 
   @override
   String get registerTitle => 'Create account';
@@ -97,9 +89,6 @@ class SallahhaLocalizationsEn extends SallahhaLocalizations {
 
   @override
   String get registerPasswordShort => 'Password must be at least 8 characters';
-
-  @override
-  String get demoHint => 'Demo passwords only — never use real credentials';
 
   @override
   String get roleCustomer => 'Customer';

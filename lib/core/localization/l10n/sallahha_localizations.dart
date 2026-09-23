@@ -164,7 +164,7 @@ abstract class SallahhaLocalizations {
   /// No description provided for @loginSubtitle.
   ///
   /// In ar, this message translates to:
-  /// **'دخول آمن بمعلوماتك — أو جرّب بوضع العرض التجريبي'**
+  /// **'دخول آمن بمعلوماتك'**
   String get loginSubtitle;
 
   /// No description provided for @emailLabel.
@@ -196,18 +196,6 @@ abstract class SallahhaLocalizations {
   /// In ar, this message translates to:
   /// **'إنشاء حساب جديد'**
   String get createAccountAction;
-
-  /// No description provided for @demoModeTitle.
-  ///
-  /// In ar, this message translates to:
-  /// **'وضع العرض التجريبي (مقابلات)'**
-  String get demoModeTitle;
-
-  /// No description provided for @demoModeBody.
-  ///
-  /// In ar, this message translates to:
-  /// **'بدون بيانات حقيقية — واجهات مملوءة لعرض المنتج، كلمة المرور demo1234'**
-  String get demoModeBody;
 
   /// No description provided for @registerTitle.
   ///
@@ -268,12 +256,6 @@ abstract class SallahhaLocalizations {
   /// In ar, this message translates to:
   /// **'كلمة المرور ٨ أحرف على الأقل'**
   String get registerPasswordShort;
-
-  /// No description provided for @demoHint.
-  ///
-  /// In ar, this message translates to:
-  /// **'كلمات المرور تجريبية فقط ولا تستخدم بيانات حقيقية'**
-  String get demoHint;
 
   /// No description provided for @roleCustomer.
   ///

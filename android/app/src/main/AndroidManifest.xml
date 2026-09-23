@@ -1,8 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Proof photos: camera capture + gallery fallback (image_picker).
-         Runtime permission is requested by the plugin; this only declares. -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Live sync with Supabase (PostgREST/Realtime) — required in all
+         build types, not just debug/profile. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Proof photos: no dangerous runtime permissions are declared on
+         purpose. image_picker captures through the system camera app and
+         picks through the system photo picker, so neither CAMERA nor
+         READ_MEDIA_IMAGES is required at runtime (declaring CAMERA but
+         never granting it would make the capture intent throw). -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
         android:label="sallahha"

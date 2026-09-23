@@ -41,8 +41,7 @@ class SallahhaLocalizationsAr extends SallahhaLocalizations {
   String get loginTitle => 'تسجيل الدخول';
 
   @override
-  String get loginSubtitle =>
-      'دخول آمن بمعلوماتك — أو جرّب بوضع العرض التجريبي';
+  String get loginSubtitle => 'دخول آمن بمعلوماتك';
 
   @override
   String get emailLabel => 'البريد الإلكتروني';
@@ -58,13 +57,6 @@ class SallahhaLocalizationsAr extends SallahhaLocalizations {
 
   @override
   String get createAccountAction => 'إنشاء حساب جديد';
-
-  @override
-  String get demoModeTitle => 'وضع العرض التجريبي (مقابلات)';
-
-  @override
-  String get demoModeBody =>
-      'بدون بيانات حقيقية — واجهات مملوءة لعرض المنتج، كلمة المرور demo1234';
 
   @override
   String get registerTitle => 'إنشاء حساب';
@@ -96,9 +88,6 @@ class SallahhaLocalizationsAr extends SallahhaLocalizations {
 
   @override
   String get registerPasswordShort => 'كلمة المرور ٨ أحرف على الأقل';
-
-  @override
-  String get demoHint => 'كلمات المرور تجريبية فقط ولا تستخدم بيانات حقيقية';
 
   @override
   String get roleCustomer => 'عميل';

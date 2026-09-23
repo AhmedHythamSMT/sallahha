@@ -4,9 +4,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 /// `--dart-define` override support for CI.
 ///
 /// Data source selection:
-///   * default  → mock backend (keyless, offline demo)
 ///   * SUPABASE_URL + SUPABASE_ANON_KEY set → Supabase backend
 ///   * or force with `--dart-define=DATA_SOURCE=supabase|mock`
+/// (mock is no longer supported; leaving it unset makes auth/remote throw.)
 class AppConfig {
   static const _sourceOverride = String.fromEnvironment('DATA_SOURCE');
 
@@ -31,6 +31,4 @@ class AppConfig {
     if (envSource != null) return envSource == 'supabase';
     return supabaseUrl != null && supabaseAnonKey != null;
   }
-
-  static bool get isMock => !usesSupabase;
 }

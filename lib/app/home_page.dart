@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -10,11 +12,85 @@ import 'package:sallahha/shared/widgets/connectivity_widgets.dart';
 
 /// Role-aware home: premium nav cards filtered by the authorization matrix,
 /// with a gradient hero header and staggered entrance animations.
-class HomePage extends ConsumerWidget {
+///
+/// Also owns the background freshness policy: Supabase realtime is the
+/// low-latency fast path, while a lightweight lifecycle-aware poller keeps
+/// the inbox badge and request lists current even when the websocket is
+/// slow, drops, or simply never connected (tables not yet in the realtime
+/// publication). Polling pauses while the app is backgrounded.
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver {
+  Timer? _inboxTimer;
+  Timer? _listTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopTimers();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startTimers();
+      _syncNow();
+    } else {
+      _stopTimers();
+    }
+  }
+
+  /// Replaces the cached providers so the screen reflects server state
+  /// without waiting for the poller's next tick.
+  void _syncNow() {
+    final user = ref.read(sessionUserProvider);
+    if (user != null) ref.invalidate(inboxProvider(user.id));
+    _invalidateRequests();
+  }
+
+  void _invalidateRequests() {
+    final role = ref.read(sessionRoleProvider);
+    ref.invalidate(myRequestsProvider);
+    ref.invalidate(requestDetailsProvider);
+    if (role == 'supervisor' || role == 'admin') {
+      ref.invalidate(dispatchQueueProvider);
+      ref.invalidate(workloadProvider);
+    }
+  }
+
+  void _startTimers() {
+    if (ref.read(sessionUserProvider) == null) return;
+    _inboxTimer ??= Timer.periodic(const Duration(seconds: 10), (_) {
+      final user = ref.read(sessionUserProvider);
+      if (user != null) ref.invalidate(inboxProvider(user.id));
+    });
+    _listTimer ??= Timer.periodic(const Duration(seconds: 25), (_) {
+      _invalidateRequests();
+    });
+  }
+
+  void _stopTimers() {
+    _inboxTimer?.cancel();
+    _inboxTimer = null;
+    _listTimer?.cancel();
+    _listTimer = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = SallahhaLocalizations.of(context);
     final locale = ref.watch(localeProvider);
     final role = ref.watch(sessionRoleProvider);
@@ -23,12 +99,28 @@ class HomePage extends ConsumerWidget {
         ? 0
         : ref.watch(unreadInboxProvider(user.id)).valueOrNull ?? 0;
 
-    // Live inbox: server pushes → invalidate the local mirror so the
-    // badge (and the inbox screen) reflect cross-device deliveries.
+    // Keep the polling active while signed in; stop when signed out.
+    ref.listen(sessionUserProvider, (previous, next) {
+      if (next != null) {
+        _startTimers();
+        _syncNow();
+      } else {
+        _stopTimers();
+      }
+    });
+
+    // Live inbox fast path: server push → invalidate the local mirror so
+    // the badge (and the inbox screen) reflect cross-device deliveries.
     ref.listen(notificationRealtimeProvider(user?.id ?? ''), (_, next) {
       next.whenData((_) {
         if (user != null) ref.invalidate(inboxProvider(user.id));
       });
+    });
+
+    // Live requests fast path: any service_requests child-table change
+    // invalidates the lists, dispatch queue, workload and open details.
+    ref.listen(requestRealtimeProvider, (_, next) {
+      next.whenData((_) => _invalidateRequests());
     });
 
     final tiles = <_NavTile>[
@@ -76,47 +168,53 @@ class HomePage extends ConsumerWidget {
     ];
 
     return Scaffold(
-      body: Column(
-        children: [
-          const OfflineBanner(),
-          Expanded(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _HomeHeader(
-                    name: user?.name,
-                    role: role,
-                    onToggleLocale: () => ref
-                        .read(localeProvider.notifier)
-                        .setLocale(locale == 'ar' ? 'en' : 'ar'),
-                    locale: locale,
-                    onSignIn: role == null ? () => context.go('/login') : null,
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(4.w, 8.h, 4.w, 24.h),
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < tiles.length; i++) ...[
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12.w),
-                            child: _NavCard(
-                              tile: tiles[i],
-                              hero: tiles[i].hero && role == 'customer',
-                            ),
-                          ),
-                          if (i < tiles.length - 1) SizedBox(height: 8.h),
-                        ],
-                      ],
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _HomeHeader(
+                      name: user?.name,
+                      role: role,
+                      onToggleLocale: () => ref
+                          .read(localeProvider.notifier)
+                          .setLocale(locale == 'ar' ? 'en' : 'ar'),
+                      locale: locale,
+                      onSignIn:
+                          role == null ? () => context.go('/login') : null,
                     ),
                   ),
-                ),
-              ],
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(4.w, 8.h, 4.w, 24.h),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < tiles.length; i++) ...[
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.w,
+                              ),
+                              child: _NavCard(
+                                tile: tiles[i],
+                                hero: tiles[i].hero && role == 'customer',
+                              ),
+                            ),
+                            if (i < tiles.length - 1) SizedBox(height: 8.h),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

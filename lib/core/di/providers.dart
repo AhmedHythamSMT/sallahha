@@ -4,17 +4,12 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sallahha/core/analytics/analytics_service.dart';
-import 'package:sallahha/core/backend/mock_backend.dart';
-import 'package:sallahha/core/backend/mock_remote_api.dart';
 import 'package:sallahha/core/backend/remote_api.dart';
 import 'package:sallahha/core/backend/supabase_api.dart';
 import 'package:sallahha/core/config/app_config.dart';
 import 'package:sallahha/core/result/result.dart';
 import 'package:sallahha/core/storage/app_database.dart' as drift;
 import 'package:sallahha/core/storage/request_store.dart';
-import 'package:sallahha/core/storage/seed_data.dart';
-import 'package:sallahha/features/auth/data/mock_auth_repository.dart';
-import 'package:sallahha/features/auth/data/session_store.dart';
 import 'package:sallahha/features/auth/data/supabase_auth_repository.dart';
 import 'package:sallahha/features/auth/domain/auth_repository.dart';
 import 'package:sallahha/features/notifications/notification_service.dart';
@@ -25,10 +20,7 @@ import 'package:sallahha/features/requests/domain/entities.dart';
 import 'package:sallahha/features/requests/domain/request_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
-/// Feature flags (debug only). Change to false for clean real-data runs.
-const bool kSeedDemoData = false;
-
-/// Supabase client (null when not configured — mock backend stays default).
+/// Supabase client (null when not configured).
 final supabaseClientProvider = Provider<sb.SupabaseClient?>((ref) {
   if (!AppConfig.usesSupabase) return null;
   try {
@@ -61,24 +53,15 @@ class LocaleController extends StateNotifier<String> {
   }
 }
 
-/// Signed-in user (mock session; Supabase session in Phase 5).
+/// Signed-in user (client-owned; Supabase session in real mode).
 final sessionUserProvider = StateProvider<AppUser?>((ref) => null);
 
-/// Secure session persistence (memory in tests via override).
-final sessionStoreProvider = Provider<SessionStore>(
-  (ref) => SecureSessionStore(),
-);
-
-/// One-shot session restore at startup. Supabase mode restores the
-/// client's persisted session; otherwise the secure keystore is used.
+/// One-shot session restore at startup from the Supabase client's
+/// persisted session (no-op when Supabase isn't configured).
 final sessionRestoreProvider = FutureProvider<void>((ref) async {
   final client = ref.watch(supabaseClientProvider);
-  if (client != null) {
-    final user = await SupabaseAuthRepository(client).restoreSession();
-    if (user != null) ref.read(sessionUserProvider.notifier).state = user;
-    return;
-  }
-  final user = await ref.watch(sessionStoreProvider).restore();
+  if (client == null) return;
+  final user = await SupabaseAuthRepository(client).restoreSession();
   if (user != null) ref.read(sessionUserProvider.notifier).state = user;
 });
 
@@ -114,32 +97,21 @@ final isOfflineProvider = Provider<bool>((ref) {
   return false;
 });
 
-// --- Backend + repositories (mock remote default; Supabase swaps here) ---
+// --- Backend + repositories (Supabase always; unconfigured = hard error) ---
 
-/// Demo/interview mode: the login "demo" button drops the live backend
-/// and signs into the in-memory fake so interviews always have data,
-/// regardless of real-mode configuration. Demo path is never persisted.
-final demoModeProvider = StateProvider<bool>((ref) => false);
-
-final backendProvider = Provider<MockBackend>((ref) => MockBackend());
-
-/// The engine's server surface. Supabase when configured (and not in demo
-/// mode), otherwise the in-memory mock.
+/// The engine's server surface. Supabase when configured; throws when the
+/// app runs without credentials so we never silently fall back to fake data.
 final remoteApiProvider = Provider<RemoteApi>((ref) {
-  final demo = ref.watch(demoModeProvider);
-  if (demo) return MockRemoteApi(ref.watch(backendProvider));
   final client = ref.watch(supabaseClientProvider);
   if (client != null) return SupabaseApi(client);
-  return MockRemoteApi(ref.watch(backendProvider));
+  throw StateError(
+    'Supabase is not configured: set SUPABASE_URL and SUPABASE_ANON_KEY',
+  );
 });
 
 final databaseProvider = Provider<drift.AppDatabase>((ref) {
   final db = drift.AppDatabase();
   ref.onDispose(() => db.close());
-  if (kSeedDemoData) {
-    // Fire-and-forget: seeds only on first run (idempotent via unique constraints)
-    seedDemoData(db).catchError((_) {});
-  }
   return db;
 });
 
@@ -157,12 +129,11 @@ final requestRepositoryProvider = Provider<RequestRepository>(
 );
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  if (ref.watch(demoModeProvider)) {
-    return MockAuthRepository(ref.watch(backendProvider));
-  }
   final client = ref.watch(supabaseClientProvider);
   if (client != null) return SupabaseAuthRepository(client);
-  return MockAuthRepository(ref.watch(backendProvider));
+  throw StateError(
+    'Supabase is not configured: set SUPABASE_URL and SUPABASE_ANON_KEY',
+  );
 });
 
 // --- Feature state (Future-based + invalidate on mutation) ---
@@ -298,6 +269,44 @@ final notificationRealtimeProvider = StreamProvider.family<void, String>((
         callback: (_) => controller.add(null),
       )
       .subscribe();
+  ref.onDispose(() {
+    client.removeChannel(channel);
+    controller.close();
+  });
+  return controller.stream;
+});
+
+/// Real-time feed for the request domain: any INSERT/UPDATE/DELETE on the
+/// service_requests child tables emits a tick so screens invalidate their
+/// caches. Low-latency fast path; the home poller keeps screens current
+/// even when the websocket is unavailable. No-op when Supabase isn't
+/// configured (tests/keyless dev).
+final requestRealtimeProvider = StreamProvider<void>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  if (client == null) return const Stream.empty();
+  const tables = [
+    'service_requests',
+    'job_assignments',
+    'status_history',
+    'job_notes',
+    'job_photos',
+    'job_part_usage',
+    'service_ratings',
+  ];
+  final controller = StreamController<void>.broadcast();
+  final channel = client.channel('requests');
+  for (final table in tables) {
+    for (final event in sb.PostgresChangeEvent.values) {
+      if (event == sb.PostgresChangeEvent.all) continue;
+      channel.onPostgresChanges(
+        event: event,
+        schema: 'public',
+        table: table,
+        callback: (_) => controller.add(null),
+      );
+    }
+  }
+  channel.subscribe();
   ref.onDispose(() {
     client.removeChannel(channel);
     controller.close();
